@@ -1,0 +1,211 @@
+
+<style>
+  .dash-wrap { padding: 1rem 0; font-family: var(--font-sans); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .kpi { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.9rem 1rem; }
+  .kpi-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .kpi-value { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+  .kpi-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+  .section-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .controls { display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+  .controls select { font-size: 13px; padding: 5px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+  .chart-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 12px; }
+  .table-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; font-weight: 500; color: var(--color-text-secondary); padding: 0 8px 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  td { padding: 8px 8px 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
+  .badge-red { background: #FCEBEB; color: #A32D2D; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+  .util-bar-bg { background: var(--color-background-secondary); border-radius: 99px; height: 7px; width: 100%; overflow: hidden; }
+  .util-bar-fill { height: 7px; border-radius: 99px; }
+  .legend { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+
+<div class="dash-wrap">
+  <h2 class="sr-only" style="position:absolute;left:-9999px">OR block utilization gap finder — interactive dashboard showing underutilized surgical blocks by service, day, and surgeon</h2>
+
+  <div class="controls">
+    <div class="section-label" style="margin:0">Filter:</div>
+    <select id="filterService" onchange="render()">
+      <option value="all">All services</option>
+      <option value="Orthopedics">Orthopedics</option>
+      <option value="General Surgery">General Surgery</option>
+      <option value="Cardiothoracic">Cardiothoracic</option>
+      <option value="Neurosurgery">Neurosurgery</option>
+      <option value="Gynecology">Gynecology</option>
+    </select>
+    <select id="filterDay" onchange="render()">
+      <option value="all">All days</option>
+      <option value="Monday">Monday</option>
+      <option value="Tuesday">Tuesday</option>
+      <option value="Wednesday">Wednesday</option>
+      <option value="Thursday">Thursday</option>
+      <option value="Friday">Friday</option>
+    </select>
+    <select id="filterThresh" onchange="render()">
+      <option value="0">Show all blocks</option>
+      <option value="0.75">Gaps only (&lt;75%)</option>
+      <option value="0.85">Critical gaps (&lt;85%)</option>
+    </select>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Avg utilization</div><div class="kpi-value" id="kpi-avg">—</div><div class="kpi-sub">across filtered blocks</div></div>
+    <div class="kpi"><div class="kpi-label">Revenue at risk</div><div class="kpi-value" id="kpi-rev">—</div><div class="kpi-sub">from underutilized blocks</div></div>
+    <div class="kpi"><div class="kpi-label">Critical gaps</div><div class="kpi-value" id="kpi-gaps">—</div><div class="kpi-sub">blocks below 75%</div></div>
+    <div class="kpi"><div class="kpi-label">Top gap day</div><div class="kpi-value" id="kpi-day">—</div><div class="kpi-sub">most unused block time</div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Utilization by service</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>Below 75%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>75–84%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#639922"></div>85%+</div>
+      </div>
+      <div id="serviceChart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Avg utilization by day of week</div>
+      <div id="dayChart"></div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="chart-title">Block detail — underutilization gaps</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Surgeon</th><th>Service</th><th>Day</th><th>Block time</th><th>Utilization</th><th style="min-width:90px"></th><th>Revenue at risk</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const raw = [
+  {surgeon:"Dr. Patel",      service:"Orthopedics",    day:"Monday",    blockHrs:4, util:0.58, rateK:12},
+  {surgeon:"Dr. Patel",      service:"Orthopedics",    day:"Thursday",  blockHrs:4, util:0.72, rateK:12},
+  {surgeon:"Dr. Kim",        service:"Orthopedics",    day:"Wednesday", blockHrs:3, util:0.91, rateK:12},
+  {surgeon:"Dr. Chen",       service:"General Surgery",day:"Tuesday",   blockHrs:4, util:0.65, rateK:9},
+  {surgeon:"Dr. Chen",       service:"General Surgery",day:"Friday",    blockHrs:4, util:0.80, rateK:9},
+  {surgeon:"Dr. Russo",      service:"General Surgery",day:"Monday",    blockHrs:3, util:0.88, rateK:9},
+  {surgeon:"Dr. Okonkwo",    service:"Cardiothoracic", day:"Tuesday",   blockHrs:5, util:0.70, rateK:18},
+  {surgeon:"Dr. Okonkwo",    service:"Cardiothoracic", day:"Thursday",  blockHrs:5, util:0.93, rateK:18},
+  {surgeon:"Dr. Singh",      service:"Neurosurgery",   day:"Wednesday", blockHrs:5, util:0.55, rateK:16},
+  {surgeon:"Dr. Singh",      service:"Neurosurgery",   day:"Friday",    blockHrs:5, util:0.78, rateK:16},
+  {surgeon:"Dr. Torres",     service:"Gynecology",     day:"Monday",    blockHrs:3, util:0.82, rateK:8},
+  {surgeon:"Dr. Torres",     service:"Gynecology",     day:"Thursday",  blockHrs:3, util:0.60, rateK:8},
+  {surgeon:"Dr. Nakamura",   service:"Orthopedics",    day:"Friday",    blockHrs:4, util:0.74, rateK:12},
+  {surgeon:"Dr. Adeyemi",    service:"General Surgery",day:"Wednesday", blockHrs:4, util:0.95, rateK:9},
+  {surgeon:"Dr. Fitzgerald", service:"Neurosurgery",   day:"Monday",    blockHrs:5, util:0.62, rateK:16},
+];
+
+function barColor(u) {
+  if (u < 0.75) return "#E24B4A";
+  if (u < 0.85) return "#EF9F27";
+  return "#639922";
+}
+
+function statusBadge(u) {
+  if (u < 0.75) return `<span class="badge badge-red">Critical gap</span>`;
+  if (u < 0.85) return `<span class="badge badge-amber">Monitor</span>`;
+  return `<span class="badge badge-green">On target</span>`;
+}
+
+function horizBar(val, maxVal, color) {
+  const pct = Math.round((val / maxVal) * 100);
+  return `<div class="util-bar-bg"><div class="util-bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+}
+
+function render() {
+  const svc = document.getElementById('filterService').value;
+  const day = document.getElementById('filterDay').value;
+  const thresh = parseFloat(document.getElementById('filterThresh').value);
+
+  let data = raw.filter(d =>
+    (svc === 'all' || d.service === svc) &&
+    (day === 'all' || d.day === day) &&
+    (isNaN(thresh) || d.util < thresh || thresh === 0)
+  );
+
+  if (!data.length) data = raw;
+
+  const avgUtil = data.reduce((s,d) => s + d.util, 0) / data.length;
+  const revAtRisk = data.filter(d => d.util < 0.85).reduce((s,d) => s + d.blockHrs * (1 - d.util) * d.rateK * 1000, 0);
+  const critGaps = data.filter(d => d.util < 0.75).length;
+
+  const dayTotals = {};
+  data.forEach(d => { dayTotals[d.day] = (dayTotals[d.day] || []).concat(d.util); });
+  const dayAvgs = Object.entries(dayTotals).map(([d, vals]) => ({day: d, avg: vals.reduce((a,b)=>a+b,0)/vals.length}));
+  const topGapDay = dayAvgs.sort((a,b) => a.avg - b.avg)[0]?.day || '—';
+
+  document.getElementById('kpi-avg').textContent = Math.round(avgUtil * 100) + '%';
+  document.getElementById('kpi-rev').textContent = '$' + Math.round(revAtRisk / 1000) + 'K';
+  document.getElementById('kpi-gaps').textContent = critGaps;
+  document.getElementById('kpi-day').textContent = topGapDay;
+
+  const svcGroups = {};
+  data.forEach(d => { svcGroups[d.service] = (svcGroups[d.service] || []).concat(d.util); });
+  const svcAvgs = Object.entries(svcGroups).map(([s, vals]) => ({svc: s, avg: vals.reduce((a,b)=>a+b,0)/vals.length})).sort((a,b) => a.avg - b.avg);
+
+  let svcHtml = '';
+  svcAvgs.forEach(({svc, avg}) => {
+    const color = barColor(avg);
+    const pct = Math.round(avg * 100);
+    svcHtml += `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);margin-bottom:4px">
+        <span>${svc}</span><span style="font-weight:500;color:var(--color-text-primary)">${pct}%</span>
+      </div>
+      ${horizBar(avg, 1, color)}
+    </div>`;
+  });
+  document.getElementById('serviceChart').innerHTML = svcHtml;
+
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+  let dayHtml = '';
+  days.forEach(d => {
+    const rows = data.filter(r => r.day === d);
+    if (!rows.length) return;
+    const avg = rows.reduce((s,r) => s + r.util, 0) / rows.length;
+    const color = barColor(avg);
+    const pct = Math.round(avg * 100);
+    dayHtml += `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);margin-bottom:4px">
+        <span>${d}</span><span style="font-weight:500;color:var(--color-text-primary)">${pct}%</span>
+      </div>
+      ${horizBar(avg, 1, color)}
+    </div>`;
+  });
+  document.getElementById('dayChart').innerHTML = dayHtml || '<p style="font-size:13px;color:var(--color-text-tertiary)">No data for selected filters.</p>';
+
+  const sorted = [...data].sort((a,b) => a.util - b.util);
+  let rows = '';
+  sorted.forEach(d => {
+    const risk = Math.round(d.blockHrs * (1 - d.util) * d.rateK);
+    rows += `<tr>
+      <td style="font-weight:500">${d.surgeon}</td>
+      <td style="color:var(--color-text-secondary)">${d.service}</td>
+      <td style="color:var(--color-text-secondary)">${d.day}</td>
+      <td style="color:var(--color-text-secondary)">${d.blockHrs}h</td>
+      <td style="font-weight:500;color:${barColor(d.util)}">${Math.round(d.util*100)}%</td>
+      <td style="min-width:80px">${horizBar(d.util, 1, barColor(d.util))}</td>
+      <td style="color:var(--color-text-secondary)">$${risk}K</td>
+      <td>${statusBadge(d.util)}</td>
+    </tr>`;
+  });
+  document.getElementById('tableBody').innerHTML = rows;
+}
+
+render();
+</script>
