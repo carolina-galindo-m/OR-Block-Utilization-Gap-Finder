@@ -1,7 +1,9 @@
 # OR Block Utilization Gap Finder
 
 **Author:** Carolina Galindo Mendoza
+
 **Status:** Work in progress; a concept tool built to explore surgical block efficiency analytics
+
 **Tools:** HTML, CSS, JavaScript
 
 ---
