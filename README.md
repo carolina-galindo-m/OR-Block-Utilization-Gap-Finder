@@ -39,7 +39,9 @@ This tool makes the gaps visible and quantifiable at a glance.
 
 Just open the HTML file in any browser:
 
-[or_block_gap_finder.html](file:///C:/Users/carol/Desktop/Portfolio%20Projects/Glossier%20Marketing%20Analytics/OR%20Utilization%20Analysis/or_block_utilization_gap_finder.html)
+```bash
+file:///C:/Users/carol/Desktop/Portfolio%20Projects/Glossier%20Marketing%20Analytics/OR%20Utilization%20Analysis/or_block_utilization_gap_finder.html
+```
 
 Or clone the repo and open locally:
 
